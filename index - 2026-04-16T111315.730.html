@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>コスト管理ダッシュボード</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', sans-serif; background: #f5f4f0; color: #1a1a18; min-height: 100vh; font-size: 14px; line-height: 1.5; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+    .header h1 { font-size: 20px; font-weight: 600; }
+    .btn { font-size: 13px; padding: 7px 14px; border-radius: 8px; border: 1px solid #d5d5d0; background: #fff; color: #1a1a18; cursor: pointer; font-family: inherit; }
+    .btn:hover { background: #f0f0ec; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-primary { background: #378ADD; color: #fff; border-color: #378ADD; }
+    .btn-primary:hover:not(:disabled) { background: #2a72c0; }
+    .btn-danger { background: #E24B4A; color: #fff; border-color: #E24B4A; }
+    .btn-danger:hover { background: #c83d3c; }
+    .btn-sm { font-size: 11px; padding: 3px 8px; }
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .card { background: #fff; border: 1px solid #e5e5e0; border-radius: 12px; padding: 16px 20px; }
+    .section-title { font-size: 12px; color: #888; font-weight: 500; margin-bottom: 12px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+    .metric-card { background: #f5f4f0; border-radius: 8px; padding: 14px 16px; }
+    .metric-label { font-size: 11px; color: #888; margin-bottom: 4px; }
+    .metric-val { font-size: 22px; font-weight: 600; color: #1a1a18; }
+    .metric-sub { font-size: 11px; margin-top: 3px; }
+    .charts-grid { display: grid; grid-template-columns: 1fr 1.8fr; gap: 10px; margin-bottom: 20px; }
+    .badge { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 6px; font-weight: 500; white-space: nowrap; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; padding: 7px 8px; color: #888; font-weight: 400; border-bottom: 1px solid #e5e5e0; }
+    td { padding: 8px 8px; border-bottom: 1px solid #f0f0ec; vertical-align: middle; }
+    .td-right { text-align: right; font-variant-numeric: tabular-nums; }
+    .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+    .filter-label { font-size: 11px; color: #888; min-width: 48px; }
+    .filter-btn { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 1px solid #e5e5e0; background: #fff; color: #1a1a18; cursor: pointer; font-family: inherit; }
+    .filter-btn.active { border-width: 1.5px; border-color: #1a1a18; background: #f5f4f0; font-weight: 500; }
+    select { font-family: inherit; font-size: 13px; padding: 7px 10px; border-radius: 8px; border: 1px solid #d5d5d0; background: #fff; color: #1a1a18; cursor: pointer; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.42); display: flex; align-items: flex-start; justify-content: center; z-index: 100; overflow-y: auto; padding: 40px 16px; }
+    .modal { background: #fff; border-radius: 12px; padding: 24px; width: 440px; max-width: 100%; }
+    .modal-wide { width: 860px; }
+    .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+    .form-group { margin-bottom: 12px; }
+    .form-label { display: block; font-size: 12px; color: #888; margin-bottom: 4px; }
+    .form-input { width: 100%; font-family: inherit; font-size: 13px; padding: 8px 10px; border-radius: 8px; border: 1px solid #d5d5d0; background: #fff; color: #1a1a18; }
+    .form-input:focus { outline: none; border-color: #378ADD; box-shadow: 0 0 0 2px rgba(55,138,221,0.15); }
+    .btn-row-right { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .preview-scroll { max-height: 380px; overflow-y: auto; border: 1px solid #e5e5e0; border-radius: 8px; }
+    .preview-scroll thead th { position: sticky; top: 0; background: #fff; z-index: 1; }
+    .import-stats { display: flex; gap: 16px; font-size: 12px; color: #888; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    .import-stats b { color: #1a1a18; }
+    .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #888; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+    .loading { text-align: center; padding: 80px; color: #888; font-size: 14px; }
+    @media (max-width: 640px) {
+      .metric-grid { grid-template-columns: 1fr 1fr; }
+      .charts-grid { grid-template-columns: 1fr; }
+      .modal-wide { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"><div class="loading">読み込み中…</div></div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+
+    // ── Firebase ─────────────────────────────────────────
+    const firebaseConfig = {
+      apiKey: "AIzaSyDOQdHTHYXOWs--nBEXjyDQpG5qzWY6Dw4",
+      authDomain: "cost-management-d7e3c.firebaseapp.com",
+      projectId: "cost-management-d7e3c",
+      storageBucket: "cost-management-d7e3c.firebasestorage.app",
+      messagingSenderId: "8525720145",
+      appId: "1:8525720145:web:5548ff2b83224a6602a670"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // ── Constants ─────────────────────────────────────────
+    const CATEGORIES = [
+      { id:"card",    label:"クレジットカード", color:"#378ADD" },
+      { id:"expense", label:"経費精算",         color:"#1D9E75" },
+      { id:"ads",     label:"広告費",           color:"#EF9F27" },
+      { id:"fixed",   label:"固定費",           color:"#D4537E" },
+      { id:"other",   label:"その他",           color:"#888780" },
+    ];
+    const SOURCES = [
+      { id:"manual",       label:"手動入力",        color:"#888780" },
+      { id:"amex-kota",    label:"AMEX（KOTA）",    color:"#185FA5" },
+      { id:"amex-satoshi", label:"AMEX（SATOSHI）", color:"#0F6E56" },
+      { id:"other-card",   label:"その他カード",    color:"#854F0B" },
+    ];
+
+    const getMonths = () => {
+      const months = [];
+      const now = new Date();
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+      }
+      return months;
+    };
+    const MONTHS = getMonths();
+    const monthLabel = (m) => { if(!m) return ""; const [y,mo]=m.split("-"); return `${y}年${parseInt(mo)}月`; };
+    const shortLabel = (m) => { if(!m) return ""; return `${parseInt(m.split("-")[1])}月`; };
+    const monthOf    = (d) => d ? d.slice(0,7) : "";
+    const fmt        = (n) => "¥" + Math.round(n).toLocaleString("ja-JP");
+
+    const guessCategory = (name) => {
+      const n = name.toUpperCase();
+      if (/NOTION|CLAUDE|GROK|DEEVID|ADOBE|アドビ|GOOGLE.*WORKSPACE|サイボウズ|HULU|フールー|SLACK|CHATGPT|OPENAI/.test(n)) return "fixed";
+      if (/ドコモ|DOCOMO|ソフトバンク|携帯|通信/.test(n)) return "fixed";
+      if (/家賃|電気|ガス|水道|保険/.test(n)) return "fixed";
+      if (/GOOGLE.*ADS|META.*ADS|FACEBOOK|広告/.test(n)) return "ads";
+      if (/DHL|ヤマト|佐川|郵便|配送/.test(n)) return "other";
+      if (/アスクル|消耗品|事務/.test(n)) return "other";
+      if (/スシロー|ピソラ|仔牛|もつ|餃子|ちょんやん|ガシキッチン|居酒屋|レストラン|カフェ|珈琲|バル|TULLY/.test(n)) return "expense";
+      if (/Suica|スイカ|交通|タクシー|クイックペイ/.test(n)) return "expense";
+      return "card";
+    };
+    const shouldSkip = (name, amount) => {
+      if (amount <= 0) return true;
+      return /BCART|口座振替|ポイント充当/.test(name.toUpperCase());
+    };
+
+    async function parseAmexCSV(file) {
+      const buf = await file.arrayBuffer();
+      const text = new TextDecoder("shift_jis").decode(buf);
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = []; let cur = "", inQ = false;
+        for (const ch of lines[i] + ",") {
+          if (ch === '"') { inQ = !inQ; }
+          else if (ch === ',' && !inQ) { cols.push(cur.trim()); cur = ""; }
+          else cur += ch;
+        }
+        if (cols.length < 6) continue;
+        const [usageDate,,name,holder,,amountRaw] = cols;
+        const amount = parseInt(amountRaw.replace(/,/g,""), 10);
+        if (isNaN(amount)) continue;
+        const date = usageDate.replace(/\//g,"-");
+        const source = holder.includes("SATOSHI") ? "amex-satoshi" : "amex-kota";
+        rows.push({ date, name: name.replace(/\s+/g," ").trim(), amount, source, skip: shouldSkip(name, amount), category: guessCategory(name) });
+      }
+      return rows;
+    }
+
+    // ── Chart components ──────────────────────────────────
+    function PieCanvas({ data }) {
+      const ref = useRef(null);
+      const chart = useRef(null);
+      useEffect(() => {
+        if (!ref.current) return;
+        if (chart.current) { chart.current.destroy(); chart.current = null; }
+        if (!data.length) return;
+        chart.current = new Chart(ref.current, {
+          type: "doughnut",
+          data: { labels: data.map(d=>d.label), datasets: [{ data: data.map(d=>d.value), backgroundColor: data.map(d=>d.color), borderWidth: 2, borderColor: "#fff" }] },
+          options: { responsive:true, maintainAspectRatio:false, cutout:"55%", plugins: { legend:{display:false}, tooltip:{ callbacks:{ label:(ctx)=>`${ctx.label}: ${fmt(ctx.raw)}` } } } }
+        });
+        return () => { if (chart.current) { chart.current.destroy(); chart.current = null; } };
+      }, [JSON.stringify(data)]);
+      return <canvas ref={ref} role="img" aria-label="カテゴリ別支出の円グラフ"/>;
+    }
+
+    function BarCanvas({ trendData, months }) {
+      const ref = useRef(null);
+      const chart = useRef(null);
+      useEffect(() => {
+        if (!ref.current) return;
+        if (chart.current) { chart.current.destroy(); chart.current = null; }
+        chart.current = new Chart(ref.current, {
+          type: "bar",
+          data: {
+            labels: months.map(m => shortLabel(m)),
+            datasets: CATEGORIES.map(cat => ({
+              label: cat.label, data: months.map(m => trendData[m]?.[cat.id]||0),
+              backgroundColor: cat.color, stack: "s"
+            }))
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins: { legend:{display:false}, tooltip:{ callbacks:{ label:(ctx)=>`${ctx.dataset.label}: ${fmt(ctx.raw)}` } } },
+            scales: {
+              x: { stacked:true, grid:{display:false}, ticks:{font:{size:11}} },
+              y: { stacked:true, grid:{color:"rgba(0,0,0,0.05)"}, border:{display:false}, ticks:{font:{size:11}, callback:(v)=>v>=10000?(v/10000).toFixed(0)+"万":v} }
+            }
+          }
+        });
+        return () => { if (chart.current) { chart.current.destroy(); chart.current = null; } };
+      }, [JSON.stringify(trendData), JSON.stringify(months)]);
+      return <canvas ref={ref} role="img" aria-label="月次支出推移の棒グラフ"/>;
+    }
+
+    // ── Main App ──────────────────────────────────────────
+    function App() {
+      const [expenses,     setExpenses]     = useState([]);
+      const [loading,      setLoading]      = useState(true);
+      const [currentMonth, setCurrentMonth] = useState(MONTHS[MONTHS.length-1]);
+      const [filterCat,    setFilterCat]    = useState("all");
+      const [filterSrc,    setFilterSrc]    = useState("all");
+      const [showModal,    setShowModal]    = useState(false);
+      const [editItem,     setEditItem]     = useState(null);
+      const [form,         setForm]         = useState({ date:"", category:"card", source:"manual", name:"", amount:"", memo:"" });
+      const [deleteId,     setDeleteId]     = useState(null);
+      const [importRows,   setImportRows]   = useState(null);
+      const [importChecked,setImportChecked]= useState({});
+      const [importCats,   setImportCats]   = useState({});
+      const [importing,    setImporting]    = useState(false);
+      const [saving,       setSaving]       = useState(false);
+      const fileRef = useRef(null);
+
+      useEffect(() => {
+        const unsub = db.collection("expenses").orderBy("date","desc")
+          .onSnapshot(snap => {
+            setExpenses(snap.docs.map(doc => ({ id:doc.id, ...doc.data() })));
+            setLoading(false);
+          }, err => { console.error(err); setLoading(false); });
+        return unsub;
+      }, []);
+
+      const currentExp = useMemo(() => expenses.filter(e => monthOf(e.date)===currentMonth), [expenses, currentMonth]);
+      const prevMonth  = MONTHS[MONTHS.indexOf(currentMonth)-1];
+      const prevExp    = useMemo(() => prevMonth ? expenses.filter(e => monthOf(e.date)===prevMonth) : [], [expenses, prevMonth]);
+
+      const totalCur  = currentExp.reduce((s,e)=>s+e.amount,0);
+      const totalPrev = prevExp.reduce((s,e)=>s+e.amount,0);
+      const diff      = totalPrev>0 ? (totalCur-totalPrev)/totalPrev*100 : null;
+
+      const catBreakdown = useMemo(() =>
+        CATEGORIES.map(c=>({...c, value:currentExp.filter(e=>e.category===c.id).reduce((s,e)=>s+e.amount,0)})).filter(c=>c.value>0),
+        [currentExp]);
+
+      const trendData = useMemo(() => {
+        const r = {};
+        MONTHS.forEach(m => { r[m]={}; CATEGORIES.forEach(c => { r[m][c.id]=expenses.filter(e=>monthOf(e.date)===m&&e.category===c.id).reduce((s,e)=>s+e.amount,0); }); });
+        return r;
+      }, [expenses]);
+
+      const filtered = useMemo(() =>
+        currentExp.filter(e=>(filterCat==="all"||e.category===filterCat)&&(filterSrc==="all"||e.source===filterSrc))
+          .sort((a,b)=>b.date.localeCompare(a.date)),
+        [currentExp, filterCat, filterSrc]);
+
+      const openAdd = () => {
+        setEditItem(null);
+        setForm({ date:currentMonth+"-01", category:"card", source:"manual", name:"", amount:"", memo:"" });
+        setShowModal(true);
+      };
+      const openEdit = (item) => {
+        setEditItem(item);
+        setForm({ date:item.date, category:item.category, source:item.source||"manual", name:item.name, amount:String(item.amount), memo:item.memo||"" });
+        setShowModal(true);
+      };
+      const saveForm = async () => {
+        if (!form.name.trim()||!form.amount||!form.date) return;
+        setSaving(true);
+        const data = {...form, amount:Number(form.amount)};
+        try {
+          if (editItem) await db.collection("expenses").doc(editItem.id).update(data);
+          else          await db.collection("expenses").add(data);
+          setShowModal(false);
+        } catch(e) { alert("保存エラー: "+e.message); }
+        setSaving(false);
+      };
+      const doDelete = async () => {
+        try { await db.collection("expenses").doc(deleteId).delete(); }
+        catch(e) { alert("削除エラー: "+e.message); }
+        setDeleteId(null);
+      };
+
+      const handleFile = async (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        setImporting(true);
+        try {
+          const rows = await parseAmexCSV(file);
+          const checked={}, cats={};
+          rows.forEach((r,i) => { checked[i]=!r.skip; cats[i]=r.category; });
+          setImportRows(rows); setImportChecked(checked); setImportCats(cats);
+        } catch(err) { alert("CSV読み込みエラー: "+err.message); }
+        setImporting(false); e.target.value="";
+      };
+      const doImport = async () => {
+        setSaving(true);
+        try {
+          const batch = db.batch();
+          importRows.forEach((r,i) => {
+            if (!importChecked[i]) return;
+            batch.set(db.collection("expenses").doc(), { date:r.date, category:importCats[i]||r.category, source:r.source, name:r.name, amount:r.amount, memo:"" });
+          });
+          await batch.commit();
+          setImportRows(null);
+        } catch(e) { alert("インポートエラー: "+e.message); }
+        setSaving(false);
+      };
+
+      const selCount = importRows ? Object.values(importChecked).filter(Boolean).length : 0;
+      const selTotal = importRows ? importRows.filter((_,i)=>importChecked[i]).reduce((s,r)=>s+r.amount,0) : 0;
+      const catOf    = (id) => CATEGORIES.find(c=>c.id===id)||CATEGORIES[0];
+      const srcOf    = (id) => SOURCES.find(s=>s.id===id)||SOURCES[0];
+      const topCat   = catBreakdown.length ? [...catBreakdown].sort((a,b)=>b.value-a.value)[0] : null;
+
+      if (loading) return <div className="loading">読み込み中…</div>;
+
+      return (
+        <div className="container">
+
+          {/* Header */}
+          <div className="header">
+            <h1>コスト管理</h1>
+            <div className="btn-row">
+              <select value={currentMonth} onChange={e=>setCurrentMonth(e.target.value)}>
+                {MONTHS.map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}
+              </select>
+              <input ref={fileRef} type="file" accept=".csv" style={{display:"none"}} onChange={handleFile}/>
+              <button className="btn" onClick={()=>fileRef.current.click()} disabled={importing}>
+                {importing?"読み込み中…":"CSVインポート"}
+              </button>
+              <button className="btn btn-primary" onClick={openAdd}>+ 追加</button>
+            </div>
+          </div>
+
+          {/* Summary cards */}
+          <div className="metric-grid">
+            <div className="metric-card">
+              <div className="metric-label">当月合計</div>
+              <div className="metric-val">{fmt(totalCur)}</div>
+              {diff!==null && <div className="metric-sub" style={{color:diff>0?"#E24B4A":"#1D9E75"}}>{diff>0?"▲":"▼"} {Math.abs(diff).toFixed(1)}% 先月比</div>}
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">支出件数</div>
+              <div className="metric-val">{currentExp.length}<span style={{fontSize:"14px",fontWeight:400,color:"#888",marginLeft:"4px"}}>件</span></div>
+              <div className="metric-sub" style={{color:"#888"}}>{CATEGORIES.filter(c=>currentExp.some(e=>e.category===c.id)).length} カテゴリ</div>
+            </div>
+            <div className="metric-card">
+              <div className="metric-label">最大カテゴリ</div>
+              {topCat
+                ? <><div style={{fontSize:"15px",fontWeight:600,color:topCat.color,marginTop:"2px"}}>{topCat.label}</div><div className="metric-sub" style={{color:"#888"}}>{fmt(topCat.value)}</div></>
+                : <div className="metric-val">—</div>}
+            </div>
+          </div>
+
+          {/* Charts */}
+          <div className="charts-grid">
+            <div className="card">
+              <div className="section-title">カテゴリ内訳</div>
+              {catBreakdown.length>0 ? <>
+                <div style={{position:"relative",height:"150px"}}><PieCanvas data={catBreakdown}/></div>
+                <div style={{display:"flex",flexDirection:"column",gap:"5px",marginTop:"8px"}}>
+                  {[...catBreakdown].sort((a,b)=>b.value-a.value).map(c=>(
+                    <div key={c.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:"12px"}}>
+                      <span style={{display:"flex",alignItems:"center",gap:"5px"}}>
+                        <span style={{width:"8px",height:"8px",borderRadius:"2px",background:c.color,display:"inline-block"}}/>
+                        <span style={{color:"#888"}}>{c.label}</span>
+                      </span>
+                      <span style={{fontVariantNumeric:"tabular-nums"}}>{fmt(c.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </> : <div style={{fontSize:"13px",color:"#888",textAlign:"center",padding:"2rem 0"}}>データなし</div>}
+            </div>
+            <div className="card">
+              <div className="section-title">月次推移（過去6ヶ月）</div>
+              <div style={{position:"relative",height:"220px"}}><BarCanvas trendData={trendData} months={MONTHS.slice(-6)}/></div>
+              <div className="legend">{CATEGORIES.map(c=><span key={c.id} className="legend-item"><span className="legend-dot" style={{background:c.color}}/>{c.label}</span>)}</div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="card">
+            <div className="section-title">明細一覧</div>
+            <div className="filter-row">
+              <span className="filter-label">カテゴリ</span>
+              <button className={`filter-btn${filterCat==="all"?" active":""}`} onClick={()=>setFilterCat("all")}>すべて</button>
+              {CATEGORIES.map(c=><button key={c.id} className={`filter-btn${filterCat===c.id?" active":""}`} onClick={()=>setFilterCat(c.id)}>{c.label}</button>)}
+            </div>
+            <div className="filter-row" style={{marginBottom:"16px"}}>
+              <span className="filter-label">カード</span>
+              <button className={`filter-btn${filterSrc==="all"?" active":""}`} onClick={()=>setFilterSrc("all")}>すべて</button>
+              {SOURCES.map(s=><button key={s.id} className={`filter-btn${filterSrc===s.id?" active":""}`} onClick={()=>setFilterSrc(s.id)}>{s.label}</button>)}
+            </div>
+            {filtered.length===0
+              ? <div style={{fontSize:"13px",color:"#888",textAlign:"center",padding:"2rem 0"}}>該当するデータがありません</div>
+              : <div style={{overflowX:"auto"}}>
+                  <table>
+                    <thead><tr><th>日付</th><th>カード</th><th>カテゴリ</th><th>内容</th><th className="td-right">金額</th><th></th></tr></thead>
+                    <tbody>
+                      {filtered.map(e=>{
+                        const cat=catOf(e.category), src=srcOf(e.source);
+                        return <tr key={e.id}>
+                          <td>{e.date}</td>
+                          <td><span className="badge" style={{background:src.color+"22",color:src.color}}>{src.label}</span></td>
+                          <td><span className="badge" style={{background:cat.color+"22",color:cat.color}}>{cat.label}</span></td>
+                          <td style={{maxWidth:"220px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.name}</td>
+                          <td className="td-right">{fmt(e.amount)}</td>
+                          <td style={{whiteSpace:"nowrap"}}>
+                            <button className="btn btn-sm" style={{marginRight:"4px"}} onClick={()=>openEdit(e)}>編集</button>
+                            <button className="btn btn-sm" onClick={()=>setDeleteId(e.id)}>削除</button>
+                          </td>
+                        </tr>;
+                      })}
+                    </tbody>
+                    <tfoot><tr>
+                      <td colSpan={4} style={{fontSize:"12px",color:"#888",padding:"8px"}}>{filtered.length}件</td>
+                      <td className="td-right" style={{fontWeight:600}}>{fmt(filtered.reduce((s,e)=>s+e.amount,0))}</td>
+                      <td/>
+                    </tr></tfoot>
+                  </table>
+                </div>
+            }
+          </div>
+
+          {/* CSV Import Modal */}
+          {importRows && (
+            <div className="overlay" onClick={ev=>{if(ev.target===ev.currentTarget)setImportRows(null);}}>
+              <div className="modal modal-wide">
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"16px"}}>
+                  <h2 style={{margin:0}}>CSVインポート — アメックス明細</h2>
+                  <button className="btn btn-sm" onClick={()=>setImportRows(null)}>✕ 閉じる</button>
+                </div>
+                <div className="import-stats">
+                  <span>全 <b>{importRows.length}</b> 件</span>
+                  <span>選択中 <b style={{color:"#378ADD"}}>{selCount}</b> 件</span>
+                  <span>合計 <b>{fmt(selTotal)}</b></span>
+                  <span style={{marginLeft:"auto",display:"flex",gap:"6px"}}>
+                    <button className="btn btn-sm" onClick={()=>{const c={};importRows.forEach((_,i)=>c[i]=true);setImportChecked(c);}}>全選択</button>
+                    <button className="btn btn-sm" onClick={()=>{const c={};importRows.forEach((_,i)=>c[i]=false);setImportChecked(c);}}>全解除</button>
+                  </span>
+                </div>
+                <div className="preview-scroll">
+                  <table>
+                    <thead><tr>
+                      <th style={{width:"32px"}}></th>
+                      <th>日付</th><th>会員</th><th>内容</th>
+                      <th className="td-right">金額</th><th style={{width:"130px"}}>カテゴリ</th>
+                    </tr></thead>
+                    <tbody>
+                      {importRows.map((r,i)=>{
+                        const checked=!!importChecked[i];
+                        const sc=r.source==="amex-satoshi"?"#0F6E56":"#185FA5";
+                        const sl=r.source==="amex-satoshi"?"SATOSHI":"KOTA";
+                        return <tr key={i} style={{opacity:r.skip&&!checked?0.38:1}}>
+                          <td><input type="checkbox" checked={checked} onChange={()=>setImportChecked(p=>({...p,[i]:!p[i]}))}/></td>
+                          <td style={{textDecoration:r.skip&&!checked?"line-through":"none",fontSize:"12px"}}>{r.date}</td>
+                          <td><span className="badge" style={{background:sc+"22",color:sc,fontSize:"10px"}}>{sl}</span></td>
+                          <td style={{fontSize:"12px",maxWidth:"200px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.name}</td>
+                          <td className="td-right" style={{fontSize:"12px"}}>{fmt(r.amount)}</td>
+                          <td>
+                            <select value={importCats[i]||"card"} onChange={e=>setImportCats(p=>({...p,[i]:e.target.value}))} style={{fontSize:"11px",padding:"3px 6px",width:"120px"}}>
+                              {CATEGORIES.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                            </select>
+                          </td>
+                        </tr>;
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="btn-row-right">
+                  <button className="btn" onClick={()=>setImportRows(null)}>キャンセル</button>
+                  <button className="btn btn-primary" disabled={selCount===0||saving} onClick={doImport}>
+                    {saving?"保存中…":`${selCount}件をインポート (${fmt(selTotal)})`}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add/Edit Modal */}
+          {showModal && (
+            <div className="overlay" onClick={ev=>{if(ev.target===ev.currentTarget)setShowModal(false);}}>
+              <div className="modal">
+                <h2>{editItem?"支出を編集":"支出を追加"}</h2>
+                <div className="form-group"><label className="form-label">日付</label>
+                  <input type="date" className="form-input" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))}/>
+                </div>
+                <div className="form-group"><label className="form-label">カテゴリ</label>
+                  <select className="form-input" value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))}>
+                    {CATEGORIES.map(c=><option key={c.id} value={c.id}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group"><label className="form-label">カード / 入力元</label>
+                  <select className="form-input" value={form.source} onChange={e=>setForm(f=>({...f,source:e.target.value}))}>
+                    {SOURCES.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+                  </select>
+                </div>
+                <div className="form-group"><label className="form-label">内容</label>
+                  <input type="text" className="form-input" placeholder="例: Google広告費" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))}/>
+                </div>
+                <div className="form-group"><label className="form-label">金額（円）</label>
+                  <input type="number" className="form-input" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))}/>
+                </div>
+                <div className="form-group"><label className="form-label">メモ（任意）</label>
+                  <input type="text" className="form-input" value={form.memo} onChange={e=>setForm(f=>({...f,memo:e.target.value}))}/>
+                </div>
+                <div className="btn-row-right">
+                  <button className="btn" onClick={()=>setShowModal(false)}>キャンセル</button>
+                  <button className="btn btn-primary" disabled={saving} onClick={saveForm}>{saving?"保存中…":"保存"}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Delete confirm */}
+          {deleteId && (
+            <div className="overlay" onClick={ev=>{if(ev.target===ev.currentTarget)setDeleteId(null);}}>
+              <div className="modal" style={{width:"300px"}}>
+                <h2>削除しますか？</h2>
+                <p style={{fontSize:"13px",color:"#888",margin:"8px 0 16px"}}>この操作は取り消せません。</p>
+                <div className="btn-row-right">
+                  <button className="btn" onClick={()=>setDeleteId(null)}>キャンセル</button>
+                  <button className="btn btn-danger" onClick={doDelete}>削除する</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>
